@@ -53,6 +53,9 @@ student_name   = 'Lachlan Garrahy' # put your name here as a character string
 # A function for exiting the program immediately (renamed
 # because "exit" is already a standard Python function).
 from sys import exit as abort
+from turtle import down
+
+from html import *
 
 # A function for opening a web document given its URL.
 # [You WILL need to use this function in your solution,
@@ -192,6 +195,9 @@ def download(url = 'http://www.wikipedia.org/',
     # Read the contents as a character string
     try:
         web_page_contents = web_page.read().decode(char_set)
+        #removes all line breaks and tabs from the outputted html
+        web_page_contents = web_page_contents.replace("\n", "")
+        web_page_contents = web_page_contents.replace("\t", "")
     except UnicodeDecodeError:
         print("Download error - Unable to decode document from URL '" + \
               url + "' as '" + char_set + "' characters\n")
@@ -252,7 +258,7 @@ radio_width = 15
 #sets the radio button height
 radio_height = 1
 #sets the text box width
-text_width = 30
+text_width = 35
 #sets the text box height
 text_height = 5
 #sets the foreground colour
@@ -270,28 +276,159 @@ logo_image = PhotoImage(file="logo.gif")
 
 # Tkinter string variable
 # able to store any string value
-int_variable = IntVar(window, 0)
+string_variable = StringVar(window, '')
+
+#list of error messages
+error_messages = [
+    "Please Select a Venue",
+    "Event: No data found\nDate: No data found"
+]
 
 #placeholder function to show the event
 def show_event_function():
-    pass
+    #attempts to run the function
+    try:
+    #downloads the site data from the venue url
+        download(url=venue_url)
+    #checks to see if the url is valid
+        try:
+            event_title, event_date = get_page_data(venue_url, 'show_event')
+            change_text("Event: " + event_title + "\n\nDate: " + event_date)
+        except:
+            change_text(error_messages[1])
+    #if the venue hasnt been selected run this
+    except:
+        #outputs error message to tell user to select a venue
+        change_text(error_messages[0])
 
-#placeholder function to display event details
+#function to display event details
 def display_detials_function():
-    pass
+    #verifies that the url is not null
+    try:
+        #opens url in new tab
+        urldisplay(venue_url, new=1, autoraise=True)
+    except:
+        #outputs error message to tell user to select a venue
+        change_text(error_messages[0])
 
 #placeholder function to print tickets
 def print_tickets_function():
-    pass
+    #verifies that the url is not null
+    try:
+        download(url=venue_url)
+        event_title, event_date, event_image, title = get_page_data(venue_url, 'print_ticket')
+        create_ticket(event_title, event_date, event_image, title)
+    except:
+        #outputs error message to tell user to select a venue
+        change_text(error_messages[0])
 
 #placeholder function to save the bookings
 def save_bookings_function():
-    pass
+    #verifies that the url is not null
+    try:
+        print(venue_url)
+    except:
+        #outputs error message to tell user to select a venue
+        change_text(error_messages[0])
+
+#function to get the page data
+def get_page_data(venue_url, command):
+    #opens the document where the website data is saved
+    #and converts all utf-8 characters to ascii characters
+    site_data = unescape(open('downloaded_document.html', 'r', encoding='utf-8').read())
+    #uses the dictionary to determine which site is selected
+    for (title, function) in values.items():
+        if function[0] == venue_url:
+            #calls the function to find the event title and event date from the website
+            event_title, event_date, event_image = function[2](site_data)
+            #returns the event title and event date to the original function to alter the text
+            if command == 'show_event':
+                return event_title, event_date
+            elif command == 'print_ticket':
+                event_date = event_date.replace('\n', "<br />")
+                return event_title, event_date, event_image, title
+
+#function to get the data from the tivoli site
+def get_tivoli_data(site_data):
+    #uses the search function to find the image title and date from the tivoli site
+    event_title = search('class="image-title">(.+?)\<\/div\>', site_data).group(1)
+    event_date = search('class="image-subtitle">(.+?)\<\/div\>', site_data).group(1)
+    event_date = event_date.replace('<br />', "\n")
+    event_image = "https://thetivoli.com.au" + search('<img data-src="(.+?)\"', site_data).group(1)
+    
+    #returns the event title, event date and event image
+    return event_title, event_date, event_image
+
+def get_brisbane_data(site_data):
+    #uses the search function to find the image title and date from the tivoli site
+    event_title = search('name--content">(.+?)\<.*', site_data).group(1)
+    event_date = search('--heavy eds-text-bm">(.+?)\<.*', site_data).group(1)
+    event_image = search('data-src="(.+?)\"', site_data).group(1)
+    
+    #returns the event title, event date and event imag
+    return event_title, event_date, event_image
+
+def get_suncorp_data(site_data):
+    #uses the search function to find the image title and date from the tivoli site
+    event_title = search('class="event-title">(.+?)</h6>', site_data).group(1)
+    event_date = search('class="event-date text-uppercase">(.+?)</h7>', site_data).group(1)
+    event_image = "https://suncorpstadium.com.au" + search('<div class="col-4">    <img src="(.+?)\"', site_data).group(1)
+
+    #returns the event title, event date and event image
+    return event_title, event_date, event_image
+
+def create_ticket( event_title, event_date, event_image, title):
+    ticket_title = "Your Ticket from the entertainmentenator" 
+    ticket = f'''
+        <!DOCTYPE html>
+        <html>
+            <head>
+            <title>{ticket_title}</title>
+            </head>
+            <body>
+            <div style="border:1px solid black;padding:15px 50px 25px 50px;width:400px; margin:0 auto;text-align:center;">
+                <h1>Admit One</h1>
+                <p> This is your ticket courtesy of <br> <i> The Entertainmentenator </i> </p>
+            </div>
+
+            <div style="border:1px solid black;padding:15px 50px 25px 50px;width:400px; margin:0 auto;text-align:center;">
+                <h1>{event_title}</h1>
+
+                <img src={event_image} alt="Event Image" width=350px height=auto>
+                
+                <p>{title}</p>
+                <p>{event_date}</p>
+                <a href={venue_url}>{title} Website</a>
+            </div>
+            </body>
+        </html>
+    '''
+    with open(ticket_file, 'w') as file:
+        file.write(ticket)
+        file.close()
+
+#function to change the text of the text box
+def change_text(text):
+    #allows the text box to be edited
+    event_details_textbox.configure(state=NORMAL)
+    #clears the text box
+    event_details_textbox.delete('1.0', END)
+    #adds the string to the text box
+    event_details_textbox.insert(END, text)
+    #disables the text box so users can not edit it
+    event_details_textbox.configure(state=DISABLED)
+
+#function to get the venue sites url
+def get_url():
+    #allows other functions to access the variable
+    global venue_url
+    #gets the value of the selected radiobutton
+    venue_url = string_variable.get()
 
 # Dictionary to create radio buttons
-values = {"The Tivoli theatre": [1, 0],
-          "Brisbane City": [2, 1],
-          "Suncorp Stadium": [3, 2]}
+values = {"The Tivoli Theatre": ['https://thetivoli.com.au/events', 0, get_tivoli_data],
+          "Brisbane City": ['https://www.eventbrite.com.au/d/australia--brisbane-city/events/', 1, get_brisbane_data],
+          "Suncorp Stadium": ['https://suncorpstadium.com.au/what-s-on.aspx', 2, get_suncorp_data]}
 
 #dictionary to create option buttons
 buttons = {"Show Event": [show_event_function, 0],
@@ -312,8 +449,8 @@ venues_label_frame.grid(column=1, row=0, sticky=N)
 
 # loop to create each radiobutton from dictionary
 for (text, radio_details) in values.items():
-    Radiobutton(venues_label_frame, text=text, variable=int_variable, width=radio_width, height=radio_height, font=general_font,
-        value=radio_details[0], indicator=0, selectcolor=foreground2, background=foreground1).grid(column=0, row=radio_details[1])
+    Radiobutton(venues_label_frame, text=text, variable=string_variable, width=radio_width, height=radio_height, font=general_font,
+    value=radio_details[0], indicator=0, selectcolor=foreground2, background=foreground1, command=get_url).grid(column=0, row=radio_details[1])
 
 #sets the frame for the option buttons
 button_label_frame = LabelFrame(window, text='Options', font = title_font, bg=background)
@@ -322,7 +459,7 @@ button_label_frame.grid(column=2, row=0, sticky=N)
 #loop to create each button from dictionary
 for (text, button_details) in buttons.items():
     Button(button_label_frame, text=text, width=button_width, height=button_height, font=general_font,
-    background=foreground1, command=button_details[1], state=DISABLED).grid(column=0, row=button_details[1])
+    background=foreground1, command=button_details[0]).grid(column=0, row=button_details[1])
 
 #sets the frame for the text box that shows the event details
 text_box_frame = LabelFrame(window, text='Chosen Event', font = title_font, bg=background)
@@ -330,15 +467,15 @@ text_box_frame.grid(column=1, row=1, columnspan=2)
 
 #creates the event details text box
 event_details_textbox = Text(text_box_frame, width = text_width, height = text_height, font = general_font,
-borderwidth = 2, relief = 'groove', background=foreground1)
+borderwidth = 2, relief = 'groove', background=foreground1, wrap='word')
 event_details_textbox.grid(column=0, row=0)
 #placeholder data for the event details text box
-event_details_textbox.insert(END, "Event name will appear here\n"
+event_details_textbox.insert(END, "Event name will appear here\n\n"
                                   "Event date(s) will appear here\n"
-                                  "placeholder\n"
-                                  "placeholder\n"
-                                  "placeholder\n"
-                                  "placeholder")
+                                  ".\n"
+                                  ".\n"
+                                  ".\n"
+                                  ".")
 #stops the user from editing the text box
 event_details_textbox.configure(state=DISABLED)
 
