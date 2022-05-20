@@ -348,6 +348,7 @@ def get_page_data(venue_url, command):
                 event_date = event_date.replace('\n', "<br />")
                 return event_title, event_date, event_image, title
 
+
 #function to get the data from the tivoli site
 def get_tivoli_data(site_data):
     #uses the search function to find the image title and date from the tivoli site
