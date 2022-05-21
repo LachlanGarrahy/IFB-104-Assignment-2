@@ -52,6 +52,7 @@ student_name   = 'Lachlan Garrahy' # put your name here as a character string
 
 # A function for exiting the program immediately (renamed
 # because "exit" is already a standard Python function).
+from contextlib import nullcontext
 from sys import exit as abort
 from turtle import down
 
@@ -92,6 +93,8 @@ from webbrowser import open as urldisplay
 
 # All the standard SQLite functions.
 from sqlite3 import *
+
+from pymysql import NULL
 
 # Confirm that the student has declared their authorship.
 # You must NOT change any of the code below.
@@ -281,8 +284,12 @@ string_variable = StringVar(window, '')
 #list of error messages
 error_messages = [
     "Please Select a Venue",
-    "Event: No data found\nDate: No data found"
+    "Event: No data found\nDate: No data found",
+    "Please print a ticket to save the booking"
 ]
+
+#list that stores event data when function to get data is run
+event_data = []
 
 #placeholder function to show the event
 def show_event_function():
@@ -292,8 +299,8 @@ def show_event_function():
         download(url=venue_url)
     #checks to see if the url is valid
         try:
-            event_title, event_date = get_page_data(venue_url, 'show_event')
-            change_text("Event: " + event_title + "\n\nDate: " + event_date)
+            get_page_data(venue_url)
+            change_text("Event: " + event_data[0] + "\n\nDate: " + event_data[1])
         except:
             change_text(error_messages[1])
     #if the venue hasnt been selected run this
@@ -315,9 +322,16 @@ def display_detials_function():
 def print_tickets_function():
     #verifies that the url is not null
     try:
+        #gets the data from the website and writes it to the downloaded_document.html file
         download(url=venue_url)
-        event_title, event_date, event_image, title = get_page_data(venue_url, 'print_ticket')
-        create_ticket(event_title, event_date, event_image, title)
+        #retrieves the page data using the venue url to check which page is being used
+        get_page_data(venue_url)
+        #replaces all line breaks with html breaks for the ticket
+        event_data[1] = event_data[1].replace('\n', "<br />")
+        #function that creates the html ticket
+        create_ticket(event_data[0], event_data[1], event_data[2], event_data[3], event_data[4])
+        #sets the button that allows the user to save their booking to the database to normal
+        save_bookings_button.configure(state = NORMAL)
     except:
         #outputs error message to tell user to select a venue
         change_text(error_messages[0])
@@ -326,13 +340,25 @@ def print_tickets_function():
 def save_bookings_function():
     #verifies that the url is not null
     try:
-        print(venue_url)
+        # Make a connection to the airline database
+        connection = connect(database = 'bookings.db')
+        # Get a cursor on the database
+        bookings_db = connection.cursor()
+        # sql query to add the appropriate data to the tickets_bought table in the database
+        bookings_db.execute(
+            "INSERT INTO tickets_bought SELECT " + "'" + event_data[0] + "', '" + event_data[1] + "', '" + event_data[3] + "', '" + event_data[4] + "'")
+        # Commit the changes to the database
+        connection.commit()
+        # Close the cursor and connection
+        bookings_db.close()
+        #sets the buttons state to disabled to prevent multiple entries being added
+        save_bookings_button.configure(state=DISABLED)
     except:
         #outputs error message to tell user to select a venue
         change_text(error_messages[0])
 
 #function to get the page data
-def get_page_data(venue_url, command):
+def get_page_data(venue_url):
     #opens the document where the website data is saved
     #and converts all utf-8 characters to ascii characters
     site_data = unescape(open('downloaded_document.html', 'r', encoding='utf-8').read())
@@ -341,12 +367,10 @@ def get_page_data(venue_url, command):
         if function[0] == venue_url:
             #calls the function to find the event title and event date from the website
             event_title, event_date, event_image = function[2](site_data)
-            #returns the event title and event date to the original function to alter the text
-            if command == 'show_event':
-                return event_title, event_date
-            elif command == 'print_ticket':
-                event_date = event_date.replace('\n', "<br />")
-                return event_title, event_date, event_image, title
+            #clears the data in the event data list
+            event_data.clear()
+            #adds new data to the event data list
+            event_data.extend([event_title, event_date, event_image, title, venue_url])
 
 #function to get the data from the tivoli site
 def get_tivoli_data(site_data):
@@ -377,7 +401,8 @@ def get_suncorp_data(site_data):
     #returns the event title, event date and event image
     return event_title, event_date, event_image
 
-def create_ticket( event_title, event_date, event_image, title):
+def create_ticket( event_title, event_date, event_image, title, venue_url):
+    #function to create the ticket in html using all necessary information
     ticket_title = "Your Ticket from the entertainmentenator" 
     ticket = f'''
         <!DOCTYPE html>
@@ -392,17 +417,18 @@ def create_ticket( event_title, event_date, event_image, title):
             </div>
 
             <div style="border:1px solid black;padding:15px 50px 25px 50px;width:400px; margin:0 auto;text-align:center;">
-                <h1>{event_title}</h1>
+                <h2>{event_title}</h2>
 
                 <img src={event_image} alt="Event Image" width=350px height=auto>
                 
-                <p>{title}</p>
+                <h2>{title}</h2>
                 <p>{event_date}</p>
                 <a href={venue_url}>{title} Website</a>
             </div>
             </body>
         </html>
     '''
+    #writes the html to the file under the variable of ticket_file
     with open(ticket_file, 'w') as file:
         file.write(ticket)
         file.close()
@@ -424,6 +450,7 @@ def get_url():
     global venue_url
     #gets the value of the selected radiobutton
     venue_url = string_variable.get()
+    save_bookings_button.configure(state=DISABLED)
 
 # Dictionary to create radio buttons
 values = {"The Tivoli Theatre": ['https://thetivoli.com.au/events', 0, get_tivoli_data],
@@ -433,8 +460,7 @@ values = {"The Tivoli Theatre": ['https://thetivoli.com.au/events', 0, get_tivol
 #dictionary to create option buttons
 buttons = {"Show Event": [show_event_function, 0],
     "Display Details": [display_detials_function, 1],
-    "Print Tickets": [print_tickets_function, 2],
-    "Save Bookings": [save_bookings_function, 3]}
+    "Print Tickets": [print_tickets_function, 2],}
 
 #frame for title and image
 title_label_frame = LabelFrame(window, text='Live Entertainmentenator', font = title_font, bg=background)
@@ -458,8 +484,13 @@ button_label_frame.grid(column=2, row=0, sticky=N)
 
 #loop to create each button from dictionary
 for (text, button_details) in buttons.items():
-    Button(button_label_frame, text=text, width=button_width, height=button_height, font=general_font,
-    background=foreground1, command=button_details[0]).grid(column=0, row=button_details[1])
+    Button(button_label_frame, text=text, width=button_width, height=button_height, font=general_font, background=foreground1,
+     command=button_details[0]).grid(column=0, row=button_details[1])
+
+#creates the save bookings button as function need to set its state, meaning it cant be created within the loop.
+save_bookings_button = Button(button_label_frame, text='Save Bookings', width=button_width, height=button_height, font=general_font,
+ background=foreground1, command=save_bookings_function, state=DISABLED)
+save_bookings_button.grid(column=0, row=3)
 
 #sets the frame for the text box that shows the event details
 text_box_frame = LabelFrame(window, text='Chosen Event', font = title_font, bg=background)
