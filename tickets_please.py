@@ -94,7 +94,7 @@ from webbrowser import open as urldisplay
 # All the standard SQLite functions.
 from sqlite3 import *
 
-from pymysql import NULL
+#from pymysql import NULL
 
 # Confirm that the student has declared their authorship.
 # You must NOT change any of the code below.
@@ -375,8 +375,8 @@ def get_page_data(venue_url):
 #function to get the data from the tivoli site
 def get_tivoli_data(site_data):
     #uses the search function to find the image title and date from the tivoli site
-    event_title = search('class="image-title">(.+?)\<\/div\>', site_data).group(1)
-    event_date = search('class="image-subtitle">(.+?)\<\/div\>', site_data).group(1)
+    event_title = search('class="image-title">(.+?)\<.*', site_data).group(1)
+    event_date = search('class="image-subtitle">(.+?)\<.*', site_data).group(1)
     event_date = event_date.replace('<br />', "\n")
     event_image = "https://thetivoli.com.au" + search('<img data-src="(.+?)\"', site_data).group(1)
     
@@ -512,4 +512,3 @@ event_details_textbox.configure(state=DISABLED)
 
 # Start the event loop to react to user inputs
 window.mainloop()
-
